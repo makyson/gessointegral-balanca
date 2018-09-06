@@ -5,7 +5,7 @@ module.exports = {
   }],
   deploy: {
     production: {
-      key: '$HOME/.ssh/iosley.pem',
+      key: '~/.ssh/iosley.pem',
       user: 'seges',
       host: [{ host: '177.67.95.238 -p 422' }],
       ref: 'origin/master',
