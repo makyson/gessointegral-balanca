@@ -11,7 +11,7 @@ module.exports = {
       ref: 'origin/master',
       repo: 'git@github.com:iosley/gessointegral-balanca.git',
       path: '/srv/balanca',
-      'post-deploy': 'npm i --no-save && pm2 restart balanca',
+      'post-deploy': 'npm i --no-save && pm2 restart ecosystem.config.js ',
     },
   },
 };
