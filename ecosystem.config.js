@@ -7,7 +7,7 @@ module.exports = {
     production: {
       key: '~/.ssh/iosley.pem',
       user: 'seges',
-      host: [{ host: '177.67.95.238', port: 422 }],
+      host: [{ host: '177.67.95.238 -p 422' }],
       ref: 'origin/master',
       repo: 'git@github.com:Username/repository.git',
       path: '~/balanca',
