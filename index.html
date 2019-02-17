@@ -98,7 +98,7 @@
   </main>
   <script>
     var display = document.getElementById('display');
-    new EventSource('http://177.67.95.238:4444')
+    new EventSource('.')
       .onmessage = function(message) {
         display.innerText = message.data;
       };
