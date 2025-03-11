@@ -25,8 +25,12 @@ const connections = [
   new SerialPort('/dev/ttyS5'),
 ];
 
-connections.forEach(serial => {
+connections.forEach((serial, i) => {
   serial.on('open', () => console.info(`OPEN ${serial.path}`));
+  serial.on('data', data => {
+    connections[(i + 1) % 2].write(data);
+    eventListener.emit('data', data);
+  });
   serial.on('close', (err) => {
     console.info(`CLOSE ${serial.path}`);
     process.exit(1);
@@ -35,12 +39,6 @@ connections.forEach(serial => {
     console.info(`ERROR ${serial.path}: `, err);
     process.exit(1);
   });
-});
-
-const [comIn, comOut] = connections;
-comIn.on('data', data => {
-  comOut.write(data);
-  eventListener.emit('data', data);
 });
 
 /* Server */
@@ -156,6 +154,6 @@ function decode(buffer) {
   for (let entry of buffer.entries()) {
     text += String.fromCharCode(entry[1]);
   }
-  const value = +text.slice(1,-2);
-  return text[0] === 'E' ? value : (value * -1);
+  const value = +text.slice(1,-1 );
+  return text[0] === 'E' ? value : value;
 }
