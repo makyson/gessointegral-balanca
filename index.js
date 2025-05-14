@@ -4,55 +4,46 @@ const fs = require("fs");
 const { SerialPort } = require("serialport");
 
 const port = process.env.PORT || 3000;
-
 const eventListener = new EventEmitter();
 const currentData = {
   timestamp: Date.now(),
   value: 0,
 };
+//const PORTS = ["/dev/ttyS0"];
+const PORTS = ["/dev/ttyS4", "/dev/ttyS5"];
 
-eventListener.on("data", (data) => {
-  const newData = decode(data);
-  currentData.timestamp = Date.now();
-  if (currentData.value !== newData) {
-    currentData.value = newData;
-    eventListener.emit("change", currentData);
-  }
-});
+const connections = PORTS.map(
+  (path) => new SerialPort({ path, baudRate: 9600 })
+);
 
-const connections = [
-  new SerialPort({ path: "/dev/ttyS4", baudRate: 9600 }),
-  new SerialPort({ path: "/dev/ttyS5", baudRate: 9600 }),
-];
-
-connections.forEach((serial, i) => {
+connections.forEach((serial) => {
   serial.on("open", () => console.info(`OPEN ${serial.path}`));
   serial.on("data", (data) => {
-    connections[(i + 1) % 2].write(data);
-    eventListener.emit("data", data);
+    const newData = decode(data);
+    if (currentData.value !== newData) {
+      currentData.timestamp = Date.now();
+      currentData.value = newData;
+      eventListener.emit("data", currentData);
+    }
   });
-  serial.on("close", (err) => {
+  serial.on("close", () => {
     console.info(`CLOSE ${serial.path}`);
     process.exit(1);
   });
   serial.on("error", (err) => {
-    console.info(`ERROR ${serial.path}: `, err);
+    console.info(`ERROR ${serial.path}:`, err);
     process.exit(1);
   });
 });
 
-/* Server */
 const server = http.createServer((req, res) => {
   try {
-    if (req.headers.accept.search("text/html") >= 0) {
+    if (req.headers.accept.includes("text/html")) {
       return streamHTML(req, res);
     }
-
     switch (req.headers.accept) {
       case "text/event-stream":
         return getDataSSE(req, res);
-      case "application/octet-stream":
-        return getDataStream(req, res);
       default:
         return getData(req, res);
     }
@@ -65,7 +56,6 @@ const server = http.createServer((req, res) => {
 
 server.listen(port, () => console.info(`Server Online on port: ${port}`));
 
-/* Functions */
 function streamHTML(req, res) {
   res.writeHead(200, {
     "Access-Control-Allow-Origin": "*",
@@ -82,11 +72,7 @@ function getData(req, res) {
     "Content-Type": "text/plain",
     "Cache-Control": "no-cache",
   });
-
-  const dataSend =
-    Date.now() - currentData.timestamp > 2e3 ? 0 : currentData.value;
-
-  res.write(dataSend.toString());
+  res.write(getCurrentData().toString());
   res.end();
 }
 
@@ -97,63 +83,38 @@ function getDataSSE(req, res) {
     "Content-Type": "text/event-stream",
     Connection: "keep-alive",
   });
-
   const sender = (data) => res.write(`data: ${data}\n\n`);
-
   let oldData = getCurrentData();
   sender(oldData);
-
   const timer = setInterval(() => {
     const tempData = getCurrentData();
     if (oldData !== tempData) {
       oldData = tempData;
       sender(oldData);
     }
-  }, 1e3);
-
+  }, 1000);
   req.connection.on("close", () => {
     clearInterval(timer);
   });
-  // res.end();
-}
-
-function getDataStream(req, res) {
-  res.writeHead(200, {
-    "Access-Control-Allow-Origin": "*",
-    "Cache-Control": "no-cache",
-    "Content-Type": "text/plain",
-    Connection: "keep-alive",
-  });
-
-  const sender = (data) => res.write(data.toString());
-
-  let oldData = getCurrentData();
-
-  sender(oldData);
-
-  const timer = setInterval(() => {
-    const tempData = getCurrentData();
-    if (oldData !== tempData) {
-      oldData = tempData;
-      sender(oldData);
-    }
-  }, 1e3);
-
-  req.connection.on("close", () => {
-    clearInterval(timer);
-  });
-  // res.end();
 }
 
 function getCurrentData() {
-  return Date.now() - currentData.timestamp > 2e3 ? 0 : currentData.value;
+  return currentData.value;
 }
 
 function decode(buffer) {
-  let text = "";
-  for (let entry of buffer.entries()) {
-    text += String.fromCharCode(entry[1]);
+  let text = buffer.toString().trim();
+  console.log(`Recebido da serial: "${text}"`);
+  let match = text.match(/\d+/);
+  if (!match) {
+    console.log("Nenhum número válido recebido, mantendo o último valor.");
+    return currentData.value;
   }
-  const value = +text.slice(1, -1);
-  return text[0] === "E" ? value : value;
+  let newValue = parseInt(match[0]);
+  if (newValue === 0) {
+    console.log("Valor zero recebido, zerando o peso.");
+    return 0;
+  }
+  console.log(`Atualizando valor para: ${newValue}`);
+  return newValue;
 }

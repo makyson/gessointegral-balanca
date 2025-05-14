@@ -144,6 +144,18 @@ Para garantir que o PM2 seja iniciado automaticamente quando o sistema for rinec
 
 Esse comando gera um script para garantir que o PM2 seja executado no início do sistema.
 
+### 7.1 **Iniciar os processos com PM2**
+
+```bash
+cd gessointegral-balanca
+```
+
+### 7.2 **Iniciar os processos com PM2**
+
+```bash
+pm2 start ecosystem.config.js
+```
+
 ### 8. **Salvar o Estado do PM2**
 
 Depois de configurar o PM2, salve o estado atual dos processos para que o PM2 os restaure após reiniciar o sistema:
