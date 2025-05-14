@@ -1,7 +1,7 @@
-const EventEmitter = require('events');
-const http         = require('http');
-const fs           = require('fs');
-const SerialPort   = require('serialport');
+const EventEmitter = require("events");
+const http = require("http");
+const fs = require("fs");
+const { SerialPort } = require("serialport");
 
 const port = process.env.PORT || 3000;
 
@@ -11,31 +11,31 @@ const currentData = {
   value: 0,
 };
 
-eventListener.on('data', data => {
+eventListener.on("data", (data) => {
   const newData = decode(data);
   currentData.timestamp = Date.now();
   if (currentData.value !== newData) {
     currentData.value = newData;
-    eventListener.emit('change', currentData);
+    eventListener.emit("change", currentData);
   }
 });
 
 const connections = [
-  new SerialPort('/dev/ttyS4'),
-  new SerialPort('/dev/ttyS5'),
+  new SerialPort({ path: "/dev/ttyS4", baudRate: 9600 }),
+  new SerialPort({ path: "/dev/ttyS5", baudRate: 9600 }),
 ];
 
 connections.forEach((serial, i) => {
-  serial.on('open', () => console.info(`OPEN ${serial.path}`));
-  serial.on('data', data => {
+  serial.on("open", () => console.info(`OPEN ${serial.path}`));
+  serial.on("data", (data) => {
     connections[(i + 1) % 2].write(data);
-    eventListener.emit('data', data);
+    eventListener.emit("data", data);
   });
-  serial.on('close', (err) => {
+  serial.on("close", (err) => {
     console.info(`CLOSE ${serial.path}`);
     process.exit(1);
   });
-  serial.on('error', (err) => {
+  serial.on("error", (err) => {
     console.info(`ERROR ${serial.path}: `, err);
     process.exit(1);
   });
@@ -44,18 +44,21 @@ connections.forEach((serial, i) => {
 /* Server */
 const server = http.createServer((req, res) => {
   try {
-    if (req.headers.accept.search('text/html') >= 0) {
+    if (req.headers.accept.search("text/html") >= 0) {
       return streamHTML(req, res);
     }
 
     switch (req.headers.accept) {
-      case 'text/event-stream': return getDataSSE(req, res);
-      case 'application/octet-stream': return getDataStream(req, res);
-      default: return getData(req, res);
+      case "text/event-stream":
+        return getDataSSE(req, res);
+      case "application/octet-stream":
+        return getDataStream(req, res);
+      default:
+        return getData(req, res);
     }
-  } catch(err) {
+  } catch (err) {
     console.error(err);
-    res.write('0');
+    res.write("0");
     res.end();
   }
 });
@@ -65,24 +68,23 @@ server.listen(port, () => console.info(`Server Online on port: ${port}`));
 /* Functions */
 function streamHTML(req, res) {
   res.writeHead(200, {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'text/html',
-    'Cache-Control': `max-age=${6E3*24}`,
+    "Access-Control-Allow-Origin": "*",
+    "Content-Type": "text/html",
+    "Cache-Control": `max-age=${6e3 * 24}`,
   });
-  const readStream = fs.createReadStream('./index.html');
+  const readStream = fs.createReadStream("./index.html");
   readStream.pipe(res);
 }
 
 function getData(req, res) {
   res.writeHead(200, {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'text/plain',
-    'Cache-Control': 'no-cache',
+    "Access-Control-Allow-Origin": "*",
+    "Content-Type": "text/plain",
+    "Cache-Control": "no-cache",
   });
 
-  const dataSend = Date.now() - currentData.timestamp > 2E3
-    ? 0
-    : currentData.value;
+  const dataSend =
+    Date.now() - currentData.timestamp > 2e3 ? 0 : currentData.value;
 
   res.write(dataSend.toString());
   res.end();
@@ -90,13 +92,13 @@ function getData(req, res) {
 
 function getDataSSE(req, res) {
   res.writeHead(200, {
-    'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'no-cache',
-    'Content-Type': 'text/event-stream',
-    'Connection': 'keep-alive',
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "no-cache",
+    "Content-Type": "text/event-stream",
+    Connection: "keep-alive",
   });
 
-  const sender = data => res.write(`data: ${data}\n\n`);
+  const sender = (data) => res.write(`data: ${data}\n\n`);
 
   let oldData = getCurrentData();
   sender(oldData);
@@ -107,9 +109,9 @@ function getDataSSE(req, res) {
       oldData = tempData;
       sender(oldData);
     }
-  }, 1E3);
+  }, 1e3);
 
-  req.connection.on('close', () => {
+  req.connection.on("close", () => {
     clearInterval(timer);
   });
   // res.end();
@@ -117,13 +119,13 @@ function getDataSSE(req, res) {
 
 function getDataStream(req, res) {
   res.writeHead(200, {
-    'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'no-cache',
-    'Content-Type': 'text/plain',
-    'Connection': 'keep-alive',
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "no-cache",
+    "Content-Type": "text/plain",
+    Connection: "keep-alive",
   });
 
-  const sender = data => res.write(data.toString());
+  const sender = (data) => res.write(data.toString());
 
   let oldData = getCurrentData();
 
@@ -135,25 +137,23 @@ function getDataStream(req, res) {
       oldData = tempData;
       sender(oldData);
     }
-  }, 1E3);
+  }, 1e3);
 
-  req.connection.on('close', () => {
+  req.connection.on("close", () => {
     clearInterval(timer);
   });
   // res.end();
 }
 
 function getCurrentData() {
-  return Date.now() - currentData.timestamp > 2E3
-    ? 0
-    : currentData.value;
+  return Date.now() - currentData.timestamp > 2e3 ? 0 : currentData.value;
 }
 
 function decode(buffer) {
-  let text = '';
+  let text = "";
   for (let entry of buffer.entries()) {
     text += String.fromCharCode(entry[1]);
   }
-  const value = +text.slice(1,-1 );
-  return text[0] === 'E' ? value : value;
+  const value = +text.slice(1, -1);
+  return text[0] === "E" ? value : value;
 }

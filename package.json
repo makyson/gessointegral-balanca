@@ -9,6 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "serialport": "^7.0.2"
+    "serialport": "^13.0.0"
   }
 }
